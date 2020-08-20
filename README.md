@@ -22,5 +22,4 @@ Some options/features include:
 
 Screenshots:
 
-![1_Initial Notification.png] (../assets/1_Initial%20Notification.png?raw=true)
-
+![Initial Notification] (https://github.com/trice81384/macOSSoftwareUpdates/blob/assets/1_Initial%20Notification.png?raw=true)
