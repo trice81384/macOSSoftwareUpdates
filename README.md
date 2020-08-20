@@ -22,5 +22,7 @@ Some options/features include:
 
 Screenshots:
 
-![Initial Notification] (../2_InstalingUpdates.png?raw=true)
-![Optional Text](../assets/2_InstalingUpdates.png)
+![Installing Upates](../assets/1_Initial%20Notification.png)
+![Installing Upates](../assets/2_InstalingUpdates.png)
+![Installing Upates](../assets/3_Deferral%20Options.png)
+![Installing Upates](../assets/4_Reboot%20with%20Deferral.png)
