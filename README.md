@@ -22,4 +22,5 @@ Some options/features include:
 
 Screenshots:
 
-![Initial Notification] (https://github.com/trice81384/macOSSoftwareUpdates/blob/assets/1_Initial%20Notification.png?raw=true)
+![Initial Notification] (../2_InstalingUpdates.png?raw=true)
+![Optional Text](../assets/2_InstalingUpdates.png)
