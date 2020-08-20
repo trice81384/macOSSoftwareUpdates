@@ -22,5 +22,5 @@ Some options/features include:
 
 Screenshots:
 
-
+![InitialNotificastion](../assets/1_Initial Notification.png?raw=true)
 
