@@ -587,7 +587,7 @@ disown \$jamfHelperUID
 killall jamfHelper
 
 "\$JAMFHelperPath" -windowType utility -title "\$JAMFHelperTitle" \
--icon "\$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading center -description "\$ComputerRebootMessage \
+-icon "\$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading center -description "\$ComputerRebootMessage" \
 -alignDescription center &
 
 #Pause just so the final message is sure to be seen
