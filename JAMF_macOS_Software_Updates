@@ -673,7 +673,7 @@ fi
 
 UpdatesReqRestart=$(cat /tmp/softwareupdates.txt | egrep 'restart|shutdown' | awk -F ',|\\\(' '{ gsub(/Title:/,""); print$1 }')
 
-UpdatesNoRestart=$(cat /tmp/softwareupdates.txt | egrep -v 'restart|shutdown' | egrep recommended | awk -F ',|\\\(' '{print$1}')
+UpdatesNoRestart=$(cat /tmp/softwareupdates.txt | egrep -v 'restart|shutdown' | egrep 'recommended|Recommended' | awk -F ',|\\\(' '{print$1}')
 
 if [ "$UpdatesReqRestart" == "" ] && [ "$UpdatesNoRestart" == "" ]
    then
