@@ -1,5 +1,6 @@
 # macOSSoftwareUpdates
 A bash script to check for updates on macOS and notify users via JAMF Helper windows.
+### Currently this script does not work on Big Sur (macOS 11) and higher due to changes made by Apple ###
 
 This script is designed to be run from JAMF Pro in order to check for updates to macOS.
 If no updates are found it does nothing. If updates are found that do not require a reboot they are installed silently.
