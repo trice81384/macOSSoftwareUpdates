@@ -1,5 +1,20 @@
 #!/bin/bash
 
+## This script is designed to be called from a JAMF policy scoped to run once a day and ideally scoped to a 
+## Smart Group where software updates available are greater than 0.
+## If updates are found users are notified what the update is and given the opportunity to install them. If reboots
+## are required users will also be notified that the machine will be rebooted at the end of the update process.
+## Users will then be given the option to reboot their machine or let it reboot automatically after 5 mins.
+## Users can also defer the updates for x number of days before they  are automatically installed.
+## It is recommended to also enable a self service policy in conjunction with this one  so users can install updates 
+## at a more appropriate time for them.
+
+## Many thanks to the many people at www.jamfnation.com for providing the basis and inspiration for this script 
+## in particular Mike Morales (@mm270) and his script found here:
+## https://github.com/mm2270/CasperSuiteScripts/blob/master/selectable_SoftwareUpdate.sh
+## as well as for ideas to run programatic updates on Apple Silicon found here:
+## https://babodee.wordpress.com/2021/03/30/handling-major-upgrades-and-minor-updates-for-macos-with-jamf/
+
 ## All references to the word "policy" log statements and variables are purely for readability and do not refer to an associated Jamf policy.
 
 # Function to provide logging of the script's actions to the log file specified by the FirstBootLog
