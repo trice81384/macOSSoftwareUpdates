@@ -17,18 +17,18 @@
 
 ## All references to the word "policy" log statements and variables are purely for readability and do not refer to an associated Jamf policy.
 
-# Function to provide logging of the script's actions to the log file specified by the FirstBootLog
+# Function to provide logging of the script's actions to the console or the log file specified by the LogFile variable.
 ScriptLogging(){
 
     local LogStamp=$(date +%Y-%m-%d\ %H:%M:%S)
     if [[ -n "$2" ]]
     then
-      LOG="$2"
+      LogFile="$2"
     else
-      LOG="PATH TO LOG FILE HERE"
+      LogFile="PATH TO LOG FILE HERE"
     fi
     
-    ## To output to the log file append '>> $LOG' to the below echo statement 
+    ## To output to the log file append '>> $LogFile' to the below echo statement 
     echo "$LogStamp" " $1"
 }
 
@@ -190,7 +190,7 @@ SWU_OUTPUT=""
 
 ##Define Jamf Variables
 JAMFHelperPath="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
-JAMFHelperTitle="WPP Software Update"
+JAMFHelperTitle="$OrgName Software Update"
 JAMFHelperHeading="Software Updates Available"
 ###JAMFHelperDescription not currently used but can be substituted for a generic message as necessary
 JAMFHelperDescription="Please save all your work, quit open programs, and make sure your computer is plugged in.
@@ -1199,7 +1199,7 @@ cat <<EOF >/Library/LaunchDaemons/com.$FormattedOrgName.SoftwareUpdateReboot.pli
 <plist version="1.0">
 <dict>
 <key>Label</key>
-<string>com.wpp.SoftwareUpdateReboot</string>
+<string>com.$FormattedOrgName.SoftwareUpdateReboot</string>
 <key>Program</key>
 <string>/Library/Scripts/SoftwareUpdateReboot</string>
 <key>StartCalendarInterval</key>
@@ -1258,9 +1258,14 @@ if [[ -z "$UpdatesReqRestart" ]] && [[ -z "$UpdatesNoRestart" ]]
     else  
     ScriptLogging "No new software to install. "  
    fi
-   elif [[ "$arch" == "arm64" ]] || [[ "$osvers_major" -eq "11" && "$osvers_minor" -lt "1" ]]
+   elif [[ "$arch" == "arm64" ]] 
         then
-          ScriptLogging "Apple Silicon or Big Sur 11.0 detected. Invoking different update function."
+          ScriptLogging "Apple Silicon detected. Invoking different update function."
+          defaults write $UpdateAttemptsFile PolicyRunning -bool true
+          updatesAppleSilicon
+   elif [[ "$osvers_major" -ge "12" ]] || [[ "$osvers_major" -eq "11" && "$osvers_minor" -lt "1" ]]
+        then
+          ScriptLogging "macOS Monterey or Big Sur 11.0.x detected. Invoking different update function."
           defaults write $UpdateAttemptsFile PolicyRunning -bool true
           updatesAppleSilicon
    elif [[ "$UpdatesReqRestart" != "" ]]
@@ -1321,4 +1326,3 @@ getUpdates
 else
 ScriptLogging "The current policy status is $PolicyStatus. The policy is disabled (not running)."
 fi
-
