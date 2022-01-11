@@ -477,8 +477,11 @@ checkActivationFrequency()
 SetRandomDelay()
 {
 # If the delay interval passed in is not a number or 0 then set it to 0 and update the interval in the plist
-if [[ "$DelayPeriod" == *[!0-9]* ]] || [[ "$DelayPeriod" == "0" ]]
+# macOS uses POSIX regex so we can't use things like \d to match digits
+if [[ "$DelayPeriod" =~ ^[1-9][0-9]*$ ]]
 then
+ScriptLogging "Random Delay: Delay period of $DelayPeriod entered."
+else
 ScriptLogging "Random Delay: No valid delay period specified. Defaulting to no delay."
 DelayPeriod="0"
 defaults write "$UpdateAttemptsFile" DelayPeriod -int "$DelayPeriod"
@@ -493,12 +496,20 @@ CurrentInterval=$(defaults read "$UpdateAttemptsFile" DelayPeriod 2>/dev/null)
 ## A run of the script without a proper delay set will also trigger this condition.
 ## The generated random delay (in days) is then written to the plist.
 ## No matter which condition the current delay is assigned to RandomInterval variable.
-if [[ "$CurrentInterval" != "$DelayPeriod" ]]
+if [[ "$DelayPeriod" == "0" ]]
+then
+  ScriptLogging "Random Delay: Interval is set to $DelayPeriod."
+elif [[ "$CurrentInterval" != "$DelayPeriod" ]]
+#if [[ "$CurrentInterval" != "$DelayPeriod" ]] && [[ "$DelayPeriod" != "0" ]]
 then
   ScriptLogging "Random Delay: Interval has changed to $DelayPeriod."
   defaults write "$UpdateAttemptsFile" DelayPeriod -int "$DelayPeriod"
   RandomInterval=$((1 + $RANDOM % $DelayPeriod))
   defaults write "$UpdateAttemptsFile" RandomDelay -int "$RandomInterval"
+  
+  ScriptLogging "Setting policy enabled to false and resetting the deferral counter."
+  defaults write $UpdateAttemptsFile PolicyRunning -bool false 
+  defaults write $UpdateAttemptsFile UpdateCount -int 0
 else
   ScriptLogging "Random Delay: No change in random delay period."
 fi
