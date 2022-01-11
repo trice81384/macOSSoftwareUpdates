@@ -500,7 +500,6 @@ if [[ "$DelayPeriod" == "0" ]]
 then
   ScriptLogging "Random Delay: Interval is set to $DelayPeriod."
 elif [[ "$CurrentInterval" != "$DelayPeriod" ]]
-#if [[ "$CurrentInterval" != "$DelayPeriod" ]] && [[ "$DelayPeriod" != "0" ]]
 then
   ScriptLogging "Random Delay: Interval has changed to $DelayPeriod."
   defaults write "$UpdateAttemptsFile" DelayPeriod -int "$DelayPeriod"
