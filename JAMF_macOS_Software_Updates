@@ -628,7 +628,7 @@ Attempt $FinalChance will repeatedly prompt to install the updates.
 
 Clicking update will open the Software Update Preferences Pane.
 Once open please install all available updates.
-**Updates may also be run from the Mac Hub.**"
+**Updates may also be run from Self Service.**"
 
            elif [[ "$UpdatesNoRestart" != "" ]]
            then
@@ -642,7 +642,7 @@ Attempt $FinalChance will repeatedly prompt to install the updates.
 
 Clicking update will open the Software Update Preferences Pane.
 Once open please install all available updates.
-**Updates may also be run from the Mac Hub.**"
+**Updates may also be run from Self Service.**"
            fi
 
            UserResponse=$("$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
@@ -700,7 +700,7 @@ This is user installation attempt $UpdateAttempts of $TotalAttempts.
            
 Attempt $FinalChance will install updates automatically.
 
-**Updates may also be run from the Mac Hub.**"
+**Updates may also be run from Self Service.**"
 
            UserResponse=$("$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
                -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading center -description "$InformativeTextMsg" \
@@ -755,7 +755,7 @@ This is user installation attempt $UpdateAttempts of $TotalAttempts.
            
 Attempt $FinalChance will install updates automatically and your machine will restart.
 
-**Updates may also be run from the Mac Hub.**"
+**Updates may also be run from Self Service.**"
 
            UserResponse=$("$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
                -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading center -description "$InformativeTextMsg" \
