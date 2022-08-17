@@ -73,6 +73,7 @@ DelayPeriod="${9}"
 ## Parameter 10 passed in from Jamf will set the name of the organization running the script.
 ## This name is used in various plists, launch daemons, and other configuration options. 
 ## If no organization name is specified then the default of "My ORG" will be used.
+## This name should renmain consistent throughout your jamf environment and in any polices that call this script.
 OrgName="${10}"
 
 if [[ -z "$OrgName" ]]
@@ -179,7 +180,6 @@ UpdateChancesLeft="0"
 
 ## Write the contents of UpdateAttemptsFile to a variable so it can be manipulated later
 ## and written back to the UpdateAttemptsFile based upon user input
-
 UpdateCount=$(defaults read $UpdateAttemptsFile UpdateCount)
 
 ## Determine if a restart is required by updates. 0 for no and 1 for yes
@@ -192,6 +192,9 @@ SWU_OUTPUT=""
 JAMFHelperPath="/Library/Application Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper"
 JAMFHelperTitle="$OrgName Software Update"
 JAMFHelperHeading="Software Updates Available"
+JAMFHelperTextAlignment="left"
+JAMFHelperHeaderAlignment="left"
+
 ###JAMFHelperDescription not currently used but can be substituted for a generic message as necessary
 JAMFHelperDescription="Please save all your work, quit open programs, and make sure your computer is plugged in.
 
@@ -226,7 +229,7 @@ fi
 osvers_major=$(/usr/bin/sw_vers -productVersion | awk -F. {'print $1'})
 osvers_minor=$(/usr/bin/sw_vers -productVersion | awk -F. {'print $2'})
 osvers_dot=$(/usr/bin/sw_vers -productVersion | awk -F. {'print $3'})
-os_vers_full=$(sw_vers -productVersion | cut -d. -f1,2,3)
+osvers_full=$(sw_vers -productVersion | cut -d. -f1,2,3)
 
 ## Check to see if macOS reports its version as 16 (for some beta versions) and convert it to 11
 if [[ "$osvers_major" == "10" ]] && [[ "$osvers_minor" == "16" ]]
@@ -235,12 +238,12 @@ then
   osvers_major="11"
 fi
 
-ScriptLogging "Computer is running macOS $os_vers_full"
+ScriptLogging "Computer is running macOS $osvers_full"
 
 ## Find out if the machine has a bootstrap token escrowed to Jamf.
 ## Bootstrap tokens only apply for macOS 10.15.4 and above.
 ## Using AWK in this manner means the if statement can't have brackets
-if echo "$os_vers_full 10.15.4" | awk '{exit $1>=$2?0:1}'
+if echo "$osvers_full 10.15.4" | awk '{exit $1>=$2?0:1}'
 then
    BootstrapTokenEscrowed=$(profiles status -type bootstraptoken | grep escrowed | awk -F ": " '{print $3}')
    if [[ "$BootstrapTokenEscrowed" != "YES" ]]
@@ -270,7 +273,7 @@ ScriptLogging "Current logged in user is: $loggedInUser"
 ## Secure tokens only apply to users on macOS 10.13 or later.
 ## Using AWK in this manner means the if statement can't have brackets
 ScriptLogging "Checking for a Secure Token..."
-if echo "$os_vers_full 10.13" | awk '{exit $1>=$2?0:1}'
+if echo "$osvers_full 10.13" | awk '{exit $1>=$2?0:1}'
 then
    SecureTokenEnabled=$(dscl . -read /Users/$loggedInUser AuthenticationAuthority | grep -o SecureToken)
    if [[ "$SecureTokenEnabled" != "SecureToken" ]]
@@ -280,14 +283,14 @@ then
       ScriptLogging "'$loggedInUser' has a Secure Token."
    fi
 else
-  ScriptLogging "OS is $os_vers_full. Secure Token not in use for versions of macOS prior to 10.13"
+  ScriptLogging "OS is $osvers_full. Secure Token not in use for versions of macOS prior to 10.13"
 fi
 
 ## Find out if the current user has a branded self service icon if not use a default one for Jamf Helper windows based on the OS Version
 if [[ -e "/Users/$loggedInUser/Library/Application Support/com.jamfsoftware.selfservice.mac/Documents/Images/brandingimage.png" ]]
    then
       JAMFHelperIcon="/Users/$loggedInUser/Library/Application Support/com.jamfsoftware.selfservice.mac/Documents/Images/brandingimage.png"
-   elif echo "$os_vers_full 10.13" | awk '{exit $1>$2?0:1}'
+   elif echo "$osvers_full 10.13" | awk '{exit $1>$2?0:1}'
    then
       JAMFHelperIcon="/System/Library/PreferencePanes/SoftwareUpdate.prefPane/Contents/Resources/SoftwareUpdate.icns"
    else
@@ -310,11 +313,11 @@ checkDayofWeek(){
 DayofWeek=$(echo "$DayofWeek" | tr '[:upper:]' '[:lower:]')
 
 ## Check to see if a weekday already exists in the plist and if there is no value write NONE to the plist.
-if [[ -z $(defaults read $UpdateAttemptsFile PolicyStartWeekday 2>/dev/null) ]]
-then
+PolicyStartWeekday=$(defaults read $UpdateAttemptsFile PolicyStartWeekday 2>/dev/null)
+if [[ -z "$PolicyStartWeekday" ]]
+then 
+PolicyStartWeekday="NONE"
 defaults write $UpdateAttemptsFile PolicyStartWeekday -string "NONE"
-else
-PolicyStartWeekday=$(defaults read $UpdateAttemptsFile PolicyStartWeekday)
 fi
 
 if [[ "$DayofWeek" =~ sunday|monday|tuesday|wednesday|thursday|friday|saturday ]]
@@ -326,7 +329,7 @@ then
   ## If they change the day of execution to the current day of the week the script will still run based on other logic.
   if [[ "$PolicyStartWeekday" != "$DayofWeek" ]] && [[ "$DayofWeek" != "$CurrentWeekday" ]]
   then
-    ScriptLogging "New start day of $DayofWeek does not match current start day of $PolicyStartWeekday"
+    ScriptLogging "New start day of $DayofWeek does not match current start day of $PolicyStartWeekday."
     ScriptLogging "Setting policy enabled to false and resetting the deferral counter."
     defaults write $UpdateAttemptsFile PolicyRunning -bool false 
     defaults write $UpdateAttemptsFile PolicyStartWeekday -string "$DayofWeek"
@@ -343,11 +346,16 @@ then
     defaults write $UpdateAttemptsFile PolicyStartWeekday -string "$DayofWeek"
     return
   fi
+elif [[ "$PolicyStartWeekday" == "NONE" ]]
+then
+ScriptLogging "Policy start weekday is NONE. Defaulting policy to on."
+runUpdates="1"
+return
 else
-ScriptLogging "No valid start day of week found. Defaulting policy to always on."
-defaults write $UpdateAttemptsFile PolicyRunning -bool true
+ScriptLogging "No valid start day of week found. Defaulting policy to on."
+runUpdates="1"
 defaults write $UpdateAttemptsFile PolicyStartWeekday -string "NONE"
-return 255
+return
 fi
 }
 
@@ -396,6 +404,10 @@ checkActivationDate()
       ScriptLogging "The policy activation date is set to $ActivationDate. Exiting."
       return 255
      fi
+   ## This condition also prevents the current date being written as the current activation date and chaning the policy status.
+   elif [[ "$PolicyActivationDate" != "" ]]
+   then
+   ScriptLogging "No valid activation date found but the script has already run once. Leaving policy status unchanged."
    else
    ScriptLogging "No valid activation date found. Defaulting policy to always on."
    defaults write $UpdateAttemptsFile PolicyRunning -bool true
@@ -500,6 +512,7 @@ if [[ "$DelayPeriod" == "0" ]]
 then
   ScriptLogging "Random Delay: Interval is set to $DelayPeriod."
 elif [[ "$CurrentInterval" != "$DelayPeriod" ]]
+#if [[ "$CurrentInterval" != "$DelayPeriod" ]] && [[ "$DelayPeriod" != "0" ]]
 then
   ScriptLogging "Random Delay: Interval has changed to $DelayPeriod."
   defaults write "$UpdateAttemptsFile" DelayPeriod -int "$DelayPeriod"
@@ -557,9 +570,9 @@ If updates are not installed these prompts will reappear."
           "$JAMFHelperPath" -windowType fs -icon "$JAMFHelperIcon" -iconSize 128 -heading "$AppleSiliconFSHeading" -description "" &
 
           ScriptLogging "Aggressive installation of mac OS Updates happening on Apple Silicon."
-           UserResponse=$("$JAMFHelperPath" -windowType utility -windowPosition lr -title "$JAMFHelperTitle" \
+          UserResponse=$("$JAMFHelperPath" -windowType utility -windowPosition lr -title "$JAMFHelperTitle" \
                           -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -description "$AppleSiliconDescription" \
-                          -alignDescription natural -button1 "Update" -defaultButton 1) 
+                          -alignDescription "$JAMFHelperTextAlignment" -button1 "Update" -defaultButton 1)
           if [[ $UserResponse == 0 ]] || [[ $UserResponse == 239 ]]
           then
             jamfHelperUID=$(pgrep jamfHelper)
@@ -594,14 +607,22 @@ click Reopen to display these prompts again."
 ## (this function) will get called again with no deferrals left and displays messages based on whether or not the updates require a reboot.
 
        UserResponse=$("$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
-               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading center -description "$AppleSiliconUpdatesRestartReq" \
-               -alignDescription center -button1 "Reopen" -button2 "Reboot" -cancelButton 2 )
+               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading "$JAMFHelperHeaderAlignment" -description "$AppleSiliconUpdatesRestartReq" \
+               -alignDescription "$JAMFHelperTextAlignment" -button1 "Reopen" -button2 "Reboot" -cancelButton 2 )
                 ## This first condition accounts for the user selecting cancel or simply closing the window
                 if [[ $UserResponse == 2 ]] || [[ $UserResponse == 239 ]]
                 then
-                   ScriptLogging "User closed System Preferences with updates needing a reboot."
-                   ScriptLogging "System Preferences closed. Prompting user to reboot."
-                   rebootComputer
+                  ## Right now there is no good way to know if software updates have been installed here.
+                  ## Uncomment the defualts commands to make a good faith decision to reset the counter
+                  ## otherwise this reset will be handled by the getUpdates function the next time the script is run.
+                  ## Write Zero to the updates attempt file to reset the counter
+                  # defaults write $UpdateAttemptsFile UpdateCount -int 0
+                  ## Reset the policy enabled status
+                  # defaults write $UpdateAttemptsFile PolicyRunning -bool false
+
+                  ScriptLogging "User closed System Preferences with updates needing a reboot."
+                  ScriptLogging "System Preferences closed. Prompting user to reboot."
+                  rebootComputer
                 elif [[ $UserResponse == 0 ]]
                 then
                   ScriptLogging "User choose to reopen System Preferences."
@@ -646,8 +667,8 @@ Once open please install all available updates.
            fi
 
            UserResponse=$("$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
-               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading center -description "$InformativeTextMsg" \
-               -alignDescription center -button1 "Install" -button2 "Defer" -cancelButton 2 )
+               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading "$JAMFHelperHeaderAlignment" -description "$InformativeTextMsg" \
+               -alignDescription "$JAMFHelperTextAlignment" -button1 "Install" -button2 "Defer" -cancelButton 2 )
                 ## This first condition accounts for the user selecting cancel or simply closing the window
                 if [[ $UserResponse == 2 ]] || [[ $UserResponse == 239 ]]
                 then
@@ -659,6 +680,22 @@ Once open please install all available updates.
                 then
                   ScriptLogging "User choose to install Software Updates."
                   open "/System/Library/CoreServices/Software Update.app"
+
+                  ## Keep checking to see if Syetem Preferences has no attached PID
+                  ## so we know when it's closed which we take to mean updates have been installed.
+                  while [[ "$SysPrefsPID" != "" ]]
+                  do 
+                  SysPrefsPID=$(pgrep "System Preferences")
+                  done
+                  ScriptLogging "User closed System Preferences."
+
+                  ## Right now there is no good way to know if software updates have been installed here.
+                  ## Uncomment the defualts commands to make a good faith decision to reset the counter
+                  ## otherwise this reset will be handled by the getUpdates function the next time the script is run.
+                  ## Write Zero to the updates attempt file to reset the counter
+                  # defaults write $UpdateAttemptsFile UpdateCount -int 0
+                  ## Reset the policy enabled status
+                  # defaults write $UpdateAttemptsFile PolicyRunning -bool false
                 fi
         fi
 else
@@ -671,7 +708,7 @@ fi
 ##### Function to run if there are no updates that need to be restarted
 installUpdatesNoRestart()
 {
-  ScriptLogging "Updates with NO restart function running."
+ScriptLogging "Updates with NO restart function running."
 if [[ "$loggedInUser" != "root" ]]
 then
    UpdateChancesLeft=$((TotalAttempts - UpdateCount))
@@ -685,8 +722,8 @@ Some applications may quit to install updates.
 Please save all work now."
            
            "$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
-           -icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installing" -alignHeading center -description "$installMSG" \
-           -alignDescription center &
+           -icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installing" -alignHeading "$JAMFHelperHeaderAlignment" -description "$installMSG" \
+           -alignDescription "$JAMFHelperTextAlignment" &
            ScriptLogging "Forced installation of software updates happening."
            sleep 10
            installUpdates
@@ -703,8 +740,8 @@ Attempt $FinalChance will install updates automatically.
 **Updates may also be run from Self Service.**"
 
            UserResponse=$("$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
-               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading center -description "$InformativeTextMsg" \
-               -alignDescription center -button1 "Install" -button2 "Defer" -cancelButton 2 ) 
+               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading "$JAMFHelperHeaderAlignment" -description "$InformativeTextMsg" \
+               -alignDescription "$JAMFHelperTextAlignment" -button1 "Install" -button2 "Defer" -cancelButton 2 )
                 ## This first condition accounts for the user selecting cancel or simply closing the window
                 if [[ $UserResponse == 2 ]] || [[ $UserResponse == 239 ]]
                 then
@@ -740,8 +777,8 @@ We recommend saving any important documents now.
 Your Mac will reboot in order to complete the update."
            
            "$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
-           -icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installing" -alignHeading center -description "$installMSG" \
-           -alignDescription center &
+           -icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installing" -alignHeading "$JAMFHelperHeaderAlignment" -description "$installMSG" \
+           -alignDescription "$JAMFHelperTextAlignment" &
            ScriptLogging "Forced installation of software updates happening."
            sleep 10
            installUpdates    
@@ -758,8 +795,8 @@ Attempt $FinalChance will install updates automatically and your machine will re
 **Updates may also be run from Self Service.**"
 
            UserResponse=$("$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
-               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading center -description "$InformativeTextMsg" \
-               -alignDescription center -button1 "Install" -button2 "Defer" -cancelButton 2 )
+               -icon "$JAMFHelperIcon" -iconSize 128 -heading "$JAMFHelperHeading" -alignHeading "$JAMFHelperHeaderAlignment" -description "$InformativeTextMsg" \
+               -alignDescription "$JAMFHelperTextAlignment" -button1 "Install" -button2 "Defer" -cancelButton 2 )
                 ## This first condition accounts for the user selecting cancel or simply closing the window
                 if [[ $UserResponse == 2 ]] || [[ $UserResponse == 239 ]]
                 then
@@ -774,14 +811,9 @@ Attempt $FinalChance will install updates automatically and your machine will re
                 fi
          fi
 else
-## Write Zero to the updates attempt file to reset the counter
-defaults write $UpdateAttemptsFile UpdateCount -int 0
-## Reset the policy enabled status
-defaults write $UpdateAttemptsFile PolicyRunning -bool false
-## No user logged in go ahead and install
+ScriptLogging "No user logged in. Installing updates."
 installUpdates
 fi
-
 }
 
 #### Function to install selected updates and display user prompts
@@ -816,15 +848,15 @@ during this process**."
 fi
 
 "$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
--icon "$JAMFHelperIcon" -iconSize 128 -heading "Installing Updates" -alignHeading center -description "$SoftwareUpdateMessage" \
--alignDescription center &
+-icon "$JAMFHelperIcon" -iconSize 128 -heading "Installing Updates" -alignHeading "$JAMFHelperHeaderAlignment" -description "$SoftwareUpdateMessage" \
+-alignDescription "$JAMFHelperTextAlignment" &
 
 jamfHelperUID=$(pgrep jamfHelper)
 disown $jamfHelperUID
 
 ## Call the software update process
 ## Newer versions of macOS tend to require a different set of update options, particularly --force, to work reliably 
-if echo "$os_vers_full 10.13.4" | awk '{exit $1<$2?0:1}'
+if echo "$osvers_full 10.13.4" | awk '{exit $1<$2?0:1}'
 then
     ScriptLogging "Installing software updates according to $osvers_full, looking for halt requirements...."
     SWU_OUTPUT=$(softwareupdate -ia --no-scan | grep -e halt)
@@ -835,10 +867,14 @@ fi
 
 ## We put the recon here so it runs in the background and as the restart countdown begins.
 "$jamfBinary" recon &
+## Write Zero to the updates attempt file to reset the counter
+defaults write $UpdateAttemptsFile UpdateCount -int 0
+## Reset the policy enabled status
+defaults write $UpdateAttemptsFile PolicyRunning -bool false
 
 if [[ "$RestartReq" == "1" ]]
 then
-##Call reboot function
+## Call reboot function
 rebootComputer
 else
 ScriptLogging "Updates do not require restarts."
@@ -887,7 +923,7 @@ computer to be shut down instead.**"
 killall jamfHelper
 
 "$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" -icon "$JAMFHelperIcon" \
--iconSize 128 -heading "Software Updates Installed" -alignHeading center -description "$RebootMsg" -alignDescription center \
+-iconSize 128 -heading "Software Updates Installed" -alignHeading "$JAMFHelperHeaderAlignment" -description "$RebootMsg" -alignDescription "$JAMFHelperTextAlignment" \
 -button1 "Defer Reboot" -button2 "Reboot Now" -showDelayOptions "1800, 3600, 7200, 14400, 28800, 43200" > /tmp/UserInput &
 
 ## Assign the counter variable to another variable that we can use in individual counters
@@ -907,7 +943,7 @@ UserResponse=$(cat /tmp/UserInput)
 if [[ "$UserResponse" == "239" ]]
   then
    "$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" -icon "$JAMFHelperIcon" \
-   -iconSize 128 -heading "Software Updates Installed" -alignHeading center -description "$RebootMsg" -alignDescription center \
+   -iconSize 128 -heading "Software Updates Installed" -alignHeading "$JAMFHelperHeaderAlignment" -description "$RebootMsg" -alignDescription "$JAMFHelperTextAlignment" \
    -button1 "Defer Reboot" -button2 "Reboot Now" -showDelayOptions "1800, 3600, 7200, 14400, 28800, 43200" > /tmp/UserInput &
     UserResponse=$(cat /tmp/UserInput)
 fi
@@ -948,8 +984,8 @@ elif [[ "$Timer" == 60 ]]
      disown $jamfHelperUID
      killall jamfHelper
      "$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
-     -icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading center -description "$FinalRebootMessage" \
-     -alignDescription center &
+     -icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading "$JAMFHelperHeaderAlignment" -description "$FinalRebootMessage" \
+     -alignDescription "$JAMFHelperTextAlignment" &
 fi
 sleep 1
 Timer=$((Timer - 1))
@@ -966,23 +1002,18 @@ disown $jamfHelperUID
 killall jamfHelper
 
 "$JAMFHelperPath" -windowType utility -title "$JAMFHelperTitle" \
--icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading center -description "$ComputerRebootMessage" \
--alignDescription center &
+-icon "$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading "$JAMFHelperHeaderAlignment" -description "$ComputerRebootMessage" \
+-alignDescription "$JAMFHelperTextAlignment" &
 
 #Pause just so the final message is sure to be seen
 sleep 5
-
-## Write Zero to the updates attempt file to reset the counter
-defaults write $UpdateAttemptsFile UpdateCount -int 0
-## Reset the policy enabled status
-defaults write $UpdateAttemptsFile PolicyRunning -bool false
 
 ## Macs with the T2 chip that have updates with restarts perform better when halted (shutdown) instead of rebooted
 ## However newer versions of macOS (that can use them) tend to reboot correctly when softwareupdate is called again with the --force and --restart options.
 ## This also makes sure any updates that were not installed during the initial call to softwareupdate tried again.
 ## However, Apple silicon macs can just be rebooted normally and should avoid having the softwareupdate binary called to prevent unnecessary prompts.
 
-if echo "$os_vers_full 10.13.4" | awk '{exit $1<$2?0:1}' || [[ "$arch" == "arm64" ]]
+if echo "$osvers_full 10.13.4" | awk '{exit $1<$2?0:1}' || [[ "$arch" == "arm64" ]]
 then
   ScriptLogging "Shutting down/rebooting according to $osvers_full / $arch requirements."
   # Running old software requirements found in macOS before version 10.13.4 or Apple Silicon
@@ -999,12 +1030,11 @@ else
   ScriptLogging "Shutting down/rebooting according to $osvers_full / $arch requirements."
   softwareupdate -ia --no-scan --force --restart
 fi
-
 }
 
 rebootDelay()
 {
-
+## For good measure we'll reset the counters again.
 ## Write Zero to the updates attempt file to reset the counter
 defaults write $UpdateAttemptsFile UpdateCount -int 0
 ## Reset the policy enabled status
@@ -1038,10 +1068,10 @@ JAMFHelperTitle="$OrgName: Software Update"
 JAMFHelperHeading="Software Updates Available"
 
 ## OS X Versions
-osvers_major=\$(/usr/bin/sw_vers -productVersion | awk -F. {'print $1'})
-osvers_minor=\$(/usr/bin/sw_vers -productVersion | awk -F. {'print $2'})
-osvers_dot=\$(/usr/bin/sw_vers -productVersion | awk -F. {'print $3'})
-os_vers_full=\$(sw_vers -productVersion | cut -d. -f1,2,3)
+osvers_major=\$(/usr/bin/sw_vers -productVersion | awk -F. {'print \$1'})
+osvers_minor=\$(/usr/bin/sw_vers -productVersion | awk -F. {'print \$2'})
+osvers_dot=\$(/usr/bin/sw_vers -productVersion | awk -F. {'print \$3'})
+osvers_full=\$(sw_vers -productVersion | cut -d. -f1,2,3)
 
 ## Hardware Type
 arch=\$(/usr/bin/arch)
@@ -1106,8 +1136,8 @@ ComputerRebootMessage="COMPUTER REBOOT TIME HAS ARRIVED!
 computer to be shut down instead.**"
 
 "\$JAMFHelperPath" -windowType utility -title "\$JAMFHelperTitle" \
--icon "\$JAMFHelperIcon" -iconSize 128 -heading "COMPUTER REBOOT" -alignHeading center -description "\$RebootMsg" \
--alignDescription center -button1 "Reboot" > /tmp/UserInput &
+-icon "\$JAMFHelperIcon" -iconSize 128 -heading "COMPUTER REBOOT" -alignHeading "$JAMFHelperHeaderAlignment" -description "\$RebootMsg" \
+-alignDescription "$JAMFHelperTextAlignment" -button1 "Reboot" > /tmp/UserInput &
 
 while [ "\$Timer" != "0" ]
 do
@@ -1126,7 +1156,7 @@ if [[ "\$UserResponse" == "0" ]]
      disown \$jamfHelperUID
      killall jamfHelper
      "\$JAMFHelperPath" -windowType utility -title "\$JAMFHelperTitle" -icon "\$JAMFHelperIcon" -iconSize 128 \
-     -heading "COMPUTER REBOOT" -alignHeading center -description "\$FinalRebootMessage" -alignDescription center &
+     -heading "COMPUTER REBOOT" -alignHeading "$JAMFHelperHeaderAlignment" -description "\$FinalRebootMessage" -alignDescription "$JAMFHelperTextAlignment" &
 fi
 sleep 1
 Timer=\$((Timer - 1))
@@ -1143,8 +1173,8 @@ disown \$jamfHelperUID
 killall jamfHelper
 
 "\$JAMFHelperPath" -windowType utility -title "\$JAMFHelperTitle" \
--icon "\$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading center -description "\$ComputerRebootMessage" \
--alignDescription center &
+-icon "\$JAMFHelperIcon" -iconSize 128 -heading "Software Updates Installed" -alignHeading "$JAMFHelperHeaderAlignment" -description "\$ComputerRebootMessage" \
+-alignDescription "$JAMFHelperTextAlignment" &
 
 #Pause just so the final message is sure to be seen
 sleep 5
@@ -1160,7 +1190,7 @@ rm /Library/Scripts/SoftwareUpdateReboot
 ## This also makes sure any updates that were not installed during the initial call to softwareupdate tried again.
 ## However, Apple silicon macs can just be rebooted normally and should avoid having the softwareupdate binary called to prevent unnecessary prompts.
 
-  if echo "\$os_vers_full 10.13.4" | awk '{exit \$1<\$2?0:1}' || [[ "\$arch" == "arm64" ]]
+  if echo "\$osvers_full 10.13.4" | awk '{exit \$1<\$2?0:1}' || [[ "\$arch" == "arm64" ]]
   then
     echo "Shutting down/rebooting according to \$osvers_full / \$arch requirements."
     # Running old software requirements found in macOS before version 10.13.4 or Apple Silicon
@@ -1252,45 +1282,45 @@ fi
 ## Assign updates with or without restarts to the appropriate variables.
 UpdatesReqRestart=$(cat /tmp/softwareupdates.txt | egrep 'restart|shutdown' | awk -F ',|\\\(' '{ gsub(/Title:/,""); print$1 }')
 
-UpdatesNoRestart=$(cat /tmp/softwareupdates.txt | egrep -v 'restart|shutdown' | egrep 'recommended|Recommended' | awk -F ',|\\\(' '{print$1}')
+UpdatesNoRestart=$(cat /tmp/softwareupdates.txt | egrep -v 'restart|shutdown' | egrep 'recommended|Recommended' | awk -F ',|\\\(' '{ gsub(/Title:/,""); print$1 }')
 
 ## Write Date Script Last Run
 defaults write $UpdateAttemptsFile LastRunDate -string "$CurrentDate"
 
 if [[ -z "$UpdatesReqRestart" ]] && [[ -z "$UpdatesNoRestart" ]]
-   then
-   if [[ -e "$UpdateAttemptsFile" ]]
-      then
-        defaults write $UpdateAttemptsFile UpdateCount -int 0
-        defaults write $UpdateAttemptsFile PolicyRunning -bool false
-        ScriptLogging "No updates found. Resetting the software update counter and policy enablement. Exiting the Script."
-        exit 0
-    else  
+then
+  ## If there are no macOS updates found reset the counter otherwise run appropriate software update functions.
+  if [[ -e "$UpdateAttemptsFile" ]]
+  then
+    defaults write $UpdateAttemptsFile UpdateCount -int 0
+    defaults write $UpdateAttemptsFile PolicyRunning -bool false
+    ScriptLogging "No updates found. Resetting the macOS update counter and policy enablement."
+  else  
     ScriptLogging "No new software to install. "  
-   fi
-   elif [[ "$arch" == "arm64" ]] 
-        then
-          ScriptLogging "Apple Silicon detected. Invoking different update function."
-          defaults write $UpdateAttemptsFile PolicyRunning -bool true
-          updatesAppleSilicon
-   elif [[ "$osvers_major" -ge "12" ]] || [[ "$osvers_major" -eq "11" && "$osvers_minor" -lt "1" ]]
-        then
-          ScriptLogging "macOS Monterey or Big Sur 11.0.x detected. Invoking different update function."
-          defaults write $UpdateAttemptsFile PolicyRunning -bool true
-          updatesAppleSilicon
-   elif [[ "$UpdatesReqRestart" != "" ]]
-        then
-          RestartReq=1
-          ScriptLogging "Updates with restarts required equals $RestartReq (True)"
-          defaults write $UpdateAttemptsFile PolicyRunning -bool true
-          updatesWithRestart
-   elif [[ "$UpdatesNoRestart" != "" ]]
-        then
-          RestartReq=0
-          ScriptLogging "Updates with restarts required equals $RestartReq (False)"
-          defaults write $UpdateAttemptsFile PolicyRunning -bool true
-          installUpdatesNoRestart
   fi
+elif [[ "$arch" == "arm64" ]] 
+then
+  ScriptLogging "Apple Silicon detected. Invoking different update function."
+  defaults write $UpdateAttemptsFile PolicyRunning -bool true
+  updatesAppleSilicon
+elif [[ "$osvers_major" -ge "12" ]] || [[ "$osvers_major" -eq "11" && "$osvers_minor" -lt "1" ]]
+then
+  ScriptLogging "macOS Monterey or Big Sur 11.0.x detected. Invoking different update function."
+  defaults write $UpdateAttemptsFile PolicyRunning -bool true
+  updatesAppleSilicon
+elif [[ "$UpdatesReqRestart" != "" ]]
+then
+  RestartReq=1
+  ScriptLogging "Updates with restarts required equals $RestartReq (True)"
+  defaults write $UpdateAttemptsFile PolicyRunning -bool true
+  updatesWithRestart
+elif [[ "$UpdatesNoRestart" != "" ]]
+then
+  RestartReq=0
+  ScriptLogging "Updates with restarts required equals $RestartReq (False)"
+  defaults write $UpdateAttemptsFile PolicyRunning -bool true
+  installUpdatesNoRestart
+fi
 }
 
 ##############
@@ -1305,7 +1335,7 @@ ScriptLogging "Today is $(date "+%A %Y-%m-%d")"
 ## it has. This function also sets the runUpdates variable which in turn activates the entire script.
 ## We then run the date functions checkActivationDate and checkActivationFrequency which each each produce return codes.
 ## If they both evaluate to true we leave the status of the runUpdates variable unchanged.
-## If one evaluates to false unset (because of a date change) the runUpdates variable gets unset.
+## If one evaluates to false (because of a date change) the runUpdates variable gets unset.
 ## This method proved most consistent for all the different date change scenarios and easiest to monitor reliably. 
 ## Just using return codes for each function was producing unintended results but prob could be fixed in an update.
 
@@ -1323,13 +1353,14 @@ fi
 ## Check to see if the runUpdates variable set. Or if the script is currently enabled (PolicyStatus).
 ## That is it has already been run once but the updates have not yet been installed.
 ## This enables the script to run on days other than the days specified by the previous functions.
-## We redirect stderr to /dev/null because if the script has never run the PolicyStatus key won't exit which 
+## We redirect stderr to /dev/null because if the script has never run the PolicyStatus key won't exist which 
 ## will cause defaults to throw an error.
 PolicyStatus=$(defaults read $UpdateAttemptsFile PolicyRunning 2>/dev/null)
 
 if [[ "$runUpdates" == "1" ]] || [[ "$PolicyStatus" == "1" ]]
 then
-ScriptLogging "The current policy status is $PolicyStatus. The policy is enabled."
+ScriptLogging "\"runUpdates\" is set to ${runUpdates:-null}. \"PolicyStatus\" is set to $PolicyStatus."
+ScriptLogging "The policy is enabled."
 ## Get information about the currently logged in user and then call the function to get available updates.
 gatherUserDetails
 getUpdates
