@@ -22,7 +22,7 @@ before the scheduled reboot time occurs the script does nothing.
 2.  Set the amount of minutes the machine will automatically reboot if updates are applied and no reboot deferral option is selected or reboot now is not
     chosen.   
     This time will also be used as the delay period once a reboot deferral prompt appears. For example if you choose to give your users a 10 minute
-    window to make a reboot decision and they choose to defer once the deferral time has come the user will have 10 mins from that time before their  
+    window to make a reboot decision and they choose to defer once the deferral time has come the user will have 10 mins from that time before their      
     machine reboots.
 3.  Select the day of the week on which you want to check for updates.
 4.  Select what day of the year you want to start the script.
