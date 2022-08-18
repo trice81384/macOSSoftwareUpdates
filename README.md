@@ -34,8 +34,7 @@ before the scheduled reboot time occurs the script does nothing.
     automatically.
 11. Detailed logging showing script actions.
 12. If a machine is rebooted before the deferral time arrives user will not get prompted to reboot again.
-13. Once a user has been notified updates are available the script will keep running until the updates are installed (either by the user or forced)   
-    regardless of the options set above.
+13. Once a user has been notified updates are available the script will keep running until the updates are installed (either by the user or forced) regardless of the options set above.
 14. Fixed a bug where users could quit the update window and not select any action (this was also negatively impacted counter values).
 11. Added wording to indicate some updates may necessitate the computer to shut down as opposed to restart.
 
